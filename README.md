@@ -22,14 +22,4 @@ Interactive frontend
 
 The system runs efficiently on CPU-only machines with as little as 4 GB RAM, making it ideal for students, offline environments, and low-resource setups.
 
-If you want, I can also provide:
 
-One-line resume bullet
-
-Long academic abstract
-
-Problem statement + objectives
-
-Use-case justification for viva or project defense
-
-Just say which one you need.
