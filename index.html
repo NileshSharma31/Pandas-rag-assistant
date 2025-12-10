@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Pandas RAG Chat</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top left, #0f172a 0, #020617 50%, #020617 100%);
+      color: #e5e7eb;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 12px 20px;
+      border-bottom: 1px solid #1f2937;
+      background: linear-gradient(90deg, #020617, #111827);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    header-title {
+      display: block;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    header p {
+      margin: 3px 0 0;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+
+    .pill {
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid #1f2937;
+      background: #020617;
+      font-size: 11px;
+    }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(280px, 420px) minmax(400px, 1fr);
+      gap: 16px;
+      padding: 14px 18px 16px;
+      overflow: hidden;
+    }
+
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+      }
+    }
+
+    /* Left column: input + chat */
+    .left {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .card {
+      background: rgba(15,23,42,0.98);
+      border-radius: 14px;
+      border: 1px solid #1f2937;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .card-header h2 {
+      margin: 0;
+      font-size: 14px;
+      color: #e5e7eb;
+    }
+
+    label {
+      font-size: 12px;
+      color: #cbd5f5;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 80px;
+      max-height: 160px;
+      resize: vertical;
+      background: #020617;
+      color: #e5e7eb;
+      border-radius: 10px;
+      border: 1px solid #1f2937;
+      padding: 8px 10px;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 1px #3b82f6;
+    }
+
+    .controls-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+    }
+
+    .left-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    input[type="number"] {
+      width: 70px;
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: 1px solid #1f2937;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 12px;
+    }
+
+    button {
+      padding: 7px 14px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      background: #2563eb;
+      color: #e5e7eb;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: background 0.15s ease, transform 0.05s ease;
+    }
+
+    button:hover:not(:disabled) {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: #111827;
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: #020617;
+    }
+
+    .status {
+      font-size: 11px;
+      color: #9ca3af;
+      min-height: 16px;
+      margin-top: 4px;
+    }
+
+    /* Chat messages */
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 4px 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .msg-row {
+      display: flex;
+      width: 100%;
+    }
+    .msg-row.user {
+      justify-content: flex-end;
+    }
+    .msg-row.bot {
+      justify-content: flex-start;
+    }
+
+    .msg-bubble {
+      max-width: 88%;
+      padding: 8px 10px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .user .msg-bubble {
+      background: #2563eb;
+      color: white;
+      border-bottom-right-radius: 2px;
+    }
+
+    .bot .msg-bubble {
+      background: #020617;
+      border: 1px solid #1f2937;
+      border-bottom-left-radius: 2px;
+    }
+
+    .msg-meta {
+      font-size: 10px;
+      opacity: 0.7;
+      margin-top: 2px;
+    }
+
+    .msg-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+      font-size: 11px;
+    }
+
+    .msg-actions button {
+      padding: 2px 7px;
+      font-size: 11px;
+      background: #111827;
+    }
+
+    .typing {
+      font-size: 11px;
+      color: #9ca3af;
+      margin-left: 4px;
+    }
+
+    /* Right column: answer + sources + raw */
+    .right {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    #answerText {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-size: 13px;
+      line-height: 1.6;
+      max-height: 260px;
+      overflow-y: auto;
+    }
+
+    .sources-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      max-height: 220px;
+      overflow-y: auto;
+      font-size: 12px;
+    }
+
+    .source-item {
+      padding: 6px 0;
+      border-top: 1px solid #1f2937;
+    }
+    .source-item:first-child {
+      border-top: none;
+    }
+
+    .source-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 2px;
+    }
+
+    .badge {
+      font-size: 10px;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: #111827;
+      border: 1px solid #1f2937;
+      color: #9ca3af;
+      white-space: nowrap;
+    }
+
+    .source-url {
+      font-size: 11px;
+      color: #60a5fa;
+      text-decoration: none;
+    }
+    .source-url:hover {
+      text-decoration: underline;
+    }
+
+    .snippet {
+      color: #9ca3af;
+      margin-top: 2px;
+    }
+
+    #rawCard {
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    #raw {
+      font-size: 11px;
+    }
+
+    .confidence-badge {
+      display: none;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+  </style>
+</head>
+<body>
+<header>
+  <header-title>
+    <h1>Pandas RAG Chat</h1>
+    <p>Local LLM + FAISS + StackOverflow. Backend: POST /query</p>
+  </header-title>
+  <div class="header-right">
+    <span class="pill">Enter = send · Shift+Enter = newline</span>
+  </div>
+</header>
+
+<main>
+  <!-- LEFT: input + chat history -->
+  <section class="left">
+    <div class="card">
+      <div class="card-header">
+        <h2>Question</h2>
+      </div>
+
+      <label for="q">Ask anything about pandas (merging, groupby, strings, cleaning, etc.)</label>
+      <textarea id="q"
+        placeholder="Example: how to merge two dataframes on multiple columns in pandas"></textarea>
+
+      <div class="controls-row">
+        <div class="left-controls">
+          <div>
+            <label for="topk" style="margin-bottom:2px;">Top-K chunks</label>
+            <input id="topk" type="number" value="4" min="1" max="10">
+          </div>
+          <button id="askBtn">Ask</button>
+        </div>
+        <button id="clearBtn" class="btn-secondary" type="button">Clear chat</button>
+      </div>
+
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="card" style="flex:1; min-height:0;">
+      <div class="card-header">
+        <h2>Conversation</h2>
+        <span id="typing" class="typing"></span>
+      </div>
+      <div id="chat"></div>
+    </div>
+  </section>
+
+  <!-- RIGHT: answer + sources + raw JSON -->
+  <section class="right">
+    <div class="card">
+      <div class="card-header">
+        <h2>Selected answer</h2>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span id="confidence" class="badge confidence-badge"></span>
+          <button id="copyAnswerBtn" class="btn-secondary" type="button">Copy answer</button>
+        </div>
+      </div>
+      <div id="answerText">Ask a question to see the detailed answer here.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Sources</h2>
+        <span class="badge" id="sourceCount">0 sources</span>
+      </div>
+      <ul class="sources-list" id="sources"></ul>
+    </div>
+
+    <div class="card" id="rawCard">
+      <div class="card-header">
+        <h2>Raw JSON (debug)</h2>
+        <button id="toggleRawBtn" class="btn-secondary" type="button">Hide</button>
+      </div>
+      <pre id="raw"></pre>
+    </div>
+  </section>
+</main>
+
+<script>
+const qEl = document.getElementById('q');
+const topkEl = document.getElementById('topk');
+const askBtn = document.getElementById('askBtn');
+const clearBtn = document.getElementById('clearBtn');
+const statusEl = document.getElementById('status');
+const chatEl = document.getElementById('chat');
+const typingEl = document.getElementById('typing');
+const answerTextEl = document.getElementById('answerText');
+const sourcesEl = document.getElementById('sources');
+const rawEl = document.getElementById('raw');
+const rawCard = document.getElementById('rawCard');
+const toggleRawBtn = document.getElementById('toggleRawBtn');
+const confidenceBadge = document.getElementById('confidence');
+const copyAnswerBtn = document.getElementById('copyAnswerBtn');
+const sourceCount = document.getElementById('sourceCount');
+
+let history = [];      // {query, answer, results, ms}
+let selectedIndex = -1;
+
+// toggle raw panel
+toggleRawBtn.addEventListener('click', () => {
+  if (rawCard.style.maxHeight === '0px') {
+    rawCard.style.maxHeight = '220px';
+    toggleRawBtn.textContent = 'Hide';
+  } else {
+    rawCard.style.maxHeight = '0px';
+    toggleRawBtn.textContent = 'Show';
+  }
+});
+
+// Enter = send, Shift+Enter = newline
+qEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    ask();
+  }
+});
+
+askBtn.addEventListener('click', ask);
+clearBtn.addEventListener('click', () => {
+  history = [];
+  selectedIndex = -1;
+  chatEl.innerHTML = '';
+  answerTextEl.textContent = 'Ask a question to see the detailed answer here.';
+  sourcesEl.innerHTML = '';
+  sourceCount.textContent = '0 sources';
+  rawEl.textContent = '';
+  confidenceBadge.classList.add('confidence-badge');
+});
+
+// copy answer
+copyAnswerBtn.addEventListener('click', () => {
+  if (selectedIndex < 0 || !history[selectedIndex]) return;
+  navigator.clipboard.writeText(history[selectedIndex].answer || '')
+    .catch(() => {});
+});
+
+async function ask() {
+  const query = qEl.value.trim();
+  let top_k = parseInt(topkEl.value, 10);
+
+  if (!query) {
+    alert("Type a question.");
+    return;
+  }
+  if (isNaN(top_k) || top_k < 1) top_k = 4;
+
+  qEl.value = '';
+  statusEl.textContent = 'Sending...';
+
+  addMessage(query, 'user');
+
+  askBtn.disabled = true;
+  typingEl.textContent = 'Model is thinking...';
+  const t0 = performance.now();
+
+  try {
+    const resp = await fetch('/query', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ query, top_k })
+    });
+    const data = await resp.json();
+    const t1 = performance.now();
+    const ms = Math.round(t1 - t0);
+
+    typingEl.textContent = '';
+    statusEl.textContent = `Done in ${ms} ms.`;
+    handleAnswer(query, data, ms);
+  } catch (e) {
+    console.error(e);
+    typingEl.textContent = '';
+    statusEl.textContent = 'Error talking to backend. See console.';
+    addMessage('Error: ' + e, 'bot');
+  } finally {
+    askBtn.disabled = false;
+  }
+}
+
+function addMessage(text, role, meta = '') {
+  const row = document.createElement('div');
+  row.className = 'msg-row ' + role;
+
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.textContent = text;
+
+  if (meta) {
+    const metaEl = document.createElement('div');
+    metaEl.className = 'msg-meta';
+    metaEl.textContent = meta;
+    bubble.appendChild(metaEl);
+  }
+
+  row.appendChild(bubble);
+  chatEl.appendChild(row);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+function handleAnswer(query, data, ms) {
+  const answer = data.answer || '';
+  const results = Array.isArray(data.results) ? data.results : [];
+
+  const idx = history.length;
+  history.push({ query, answer, results, ms });
+
+  const shortAnswer = answer.split('\n').slice(0, 4).join('\n');
+  const meta = `${ms} ms · ${results.length} sources`;
+  const row = document.createElement('div');
+  row.className = 'msg-row bot';
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.textContent = shortAnswer || '[no answer]';
+
+  const metaEl = document.createElement('div');
+  metaEl.className = 'msg-meta';
+  metaEl.textContent = meta;
+  bubble.appendChild(metaEl);
+
+  const actions = document.createElement('div');
+  actions.className = 'msg-actions';
+
+  const viewBtn = document.createElement('button');
+  viewBtn.type = 'button';
+  viewBtn.className = 'btn-secondary';
+  viewBtn.textContent = 'View details';
+  viewBtn.addEventListener('click', () => selectMessage(idx));
+
+  const copyBtn = document.createElement('button');
+  copyBtn.type = 'button';
+  copyBtn.className = 'btn-secondary';
+  copyBtn.textContent = 'Copy';
+  copyBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(answer || '').catch(() => {});
+  });
+
+  actions.appendChild(viewBtn);
+  actions.appendChild(copyBtn);
+  bubble.appendChild(actions);
+
+  row.appendChild(bubble);
+  chatEl.appendChild(row);
+  chatEl.scrollTop = chatEl.scrollHeight;
+
+  // auto-select latest
+  selectMessage(idx);
+}
+
+function selectMessage(idx) {
+  selectedIndex = idx;
+  const item = history[idx];
+  if (!item) return;
+
+  answerTextEl.textContent = item.answer || '[no answer]';
+
+  // naive confidence extraction
+  const confMatch = (item.answer || '').match(/Confidence:\s*(.+)/i);
+  if (confMatch) {
+    confidenceBadge.textContent = confMatch[1].trim();
+    confidenceBadge.classList.remove('confidence-badge');
+  } else {
+    confidenceBadge.classList.add('confidence-badge');
+  }
+
+  // render sources
+  const results = item.results || [];
+  sourcesEl.innerHTML = '';
+  sourceCount.textContent = `${results.length} sources`;
+
+  results.forEach((r, i) => {
+    const li = document.createElement('li');
+    li.className = 'source-item';
+
+    const header = document.createElement('div');
+    header.className = 'source-header';
+
+    const leftSpan = document.createElement('span');
+    leftSpan.textContent = `#${i + 1} • ${r.source || 'unknown'}`;
+
+    const scoreSpan = document.createElement('span');
+    scoreSpan.className = 'badge';
+    scoreSpan.textContent = `score: ${r.score != null ? r.score.toFixed(3) : 'n/a'}`;
+
+    header.appendChild(leftSpan);
+    header.appendChild(scoreSpan);
+    li.appendChild(header);
+
+    if (r.url) {
+      const a = document.createElement('a');
+      a.href = r.url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.className = 'source-url';
+      a.textContent = r.url;
+      li.appendChild(a);
+    }
+
+    const snippet = document.createElement('div');
+    snippet.className = 'snippet';
+    const text = (r.text || '').slice(0, 260).replace(/\s+/g, ' ');
+    snippet.textContent = text + ((r.text || '').length > 260 ? '…' : '');
+    li.appendChild(snippet);
+
+    sourcesEl.appendChild(li);
+  });
+
+  // show raw JSON for current answer
+  rawEl.textContent = JSON.stringify({
+    query: item.query,
+    answer: item.answer,
+    results: item.results,
+    latency_ms: item.ms
+  }, null, 2);
+}
+</script>
+</body>
+</html>
